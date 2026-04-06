@@ -26,14 +26,29 @@ interface Chat {
   messages: Message[];
 }
 
-// ── Groq models (free) ────────────────────────────────────────────────
 const MODELS = [
-  { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B",  desc: "🧠 Best & smartest",  provider: "groq" },
-  { id: "llama-3.1-8b-instant",    label: "Llama 3.1 8B",   desc: "⚡ Fastest",           provider: "groq" },
-  { id: "mixtral-8x7b-32768",      label: "Mixtral 8x7B",   desc: "📚 Long context",      provider: "groq" },
-  { id: "gemma2-9b-it",            label: "Gemma 2 9B",     desc: "🔬 Great reasoning",   provider: "groq" },
-  { id: "gemini-2.5-flash",        label: "Gemini 2.5 Flash",desc: "✨ Google AI",         provider: "gemini" },
+  // ── Groq (Free) ──────────────────────────────────────────────────
+  { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B",   desc: "🧠 Best & smartest",   provider: "groq"     },
+  { id: "llama-3.1-8b-instant",    label: "Llama 3.1 8B",    desc: "⚡ Fastest",             provider: "groq"     },
+  { id: "mixtral-8x7b-32768",      label: "Mixtral 8x7B",    desc: "📚 Long context",        provider: "groq"     },
+  { id: "gemma2-9b-it",            label: "Gemma 2 9B",      desc: "🔬 Great reasoning",     provider: "groq"     },
+  // ── DeepSeek ─────────────────────────────────────────────────────
+  { id: "deepseek-chat",           label: "DeepSeek V3",     desc: "🔥 Super intelligent",   provider: "deepseek" },
+  // ── Google (Free tier) ───────────────────────────────────────────
+  { id: "gemini-2.5-flash",        label: "Gemini 2.5 Flash",desc: "✨ Google AI",            provider: "gemini"   },
 ];
+
+const PROVIDER_COLORS: Record<string, string> = {
+  groq:     "#6366f1",
+  deepseek: "#06b6d4",
+  gemini:   "#10b981",
+};
+
+const PROVIDER_LABELS: Record<string, string> = {
+  groq:     "Groq · Free",
+  deepseek: "DeepSeek · ~Free",
+  gemini:   "Google · Free tier",
+};
 
 const TOOL_ICONS: Record<string, string> = {
   web_search:           "🔍",
@@ -58,8 +73,6 @@ const CHIPS = [
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const now = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-// ── Components ────────────────────────────────────────────────────────
 
 function Dots() {
   return (
@@ -163,29 +176,27 @@ function MsgText({ text }: { text: string }) {
   return <div>{html}</div>;
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────
-
 export default function Page() {
-  const [chats, setChats]           = useState<Chat[]>([]);
-  const [activeId, setActiveId]     = useState<string | null>(null);
-  const [draft, setDraft]           = useState("");
-  const [model, setModel]           = useState("llama-3.3-70b-versatile");
-  const [loading, setLoading]       = useState(false);
+  const [chats, setChats]             = useState<Chat[]>([]);
+  const [activeId, setActiveId]       = useState<string | null>(null);
+  const [draft, setDraft]             = useState("");
+  const [model, setModel]             = useState("llama-3.3-70b-versatile");
+  const [loading, setLoading]         = useState(false);
   const [loadingStep, setLoadingStep] = useState("Thinking...");
-  const [error, setError]           = useState<string | null>(null);
-  const [sidebar, setSidebar]       = useState(true);
-  const [agentMode, setAgentMode]   = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [sidebar, setSidebar]         = useState(true);
+  const [agentMode, setAgentMode]     = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const taRef     = useRef<HTMLTextAreaElement>(null);
 
-  const active = chats.find(c => c.id === activeId) ?? null;
+  const active       = chats.find(c => c.id === activeId) ?? null;
   const currentModel = MODELS.find(m => m.id === model);
+  const providerColor = PROVIDER_COLORS[currentModel?.provider ?? "groq"];
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [active?.messages, loading]);
 
-  // Cycle loading messages
   useEffect(() => {
     if (!loading) return;
     const steps = ["Thinking...", "Planning approach...", "Running agents...", "Synthesizing...", "Almost done..."];
@@ -201,7 +212,6 @@ export default function Page() {
     setError(null);
   };
 
-  // ── Image generation ──────────────────────────────────────────────
   const generateImage = async (prompt: string) => {
     let cid = activeId;
     if (!cid) {
@@ -215,22 +225,12 @@ export default function Page() {
       ? { ...c, messages: [...c.messages, userMsg], title: c.messages.length === 0 ? prompt.slice(0, 34) : c.title }
       : c
     ));
-    setDraft("");
-    setLoading(true);
-    setLoadingStep("Generating image...");
-    setError(null);
+    setDraft(""); setLoading(true); setLoadingStep("Generating image..."); setError(null);
     try {
-      const res = await fetch("/api/generate-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
+      const res  = await fetch("/api/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }) });
       const data = await res.json() as { success: boolean; image?: string; mimeType?: string; error?: string };
       if (data.success && data.image) {
-        const aiMsg: Message = {
-          id: uid(), role: "assistant", time: now(), type: "image",
-          content: `data:${data.mimeType};base64,${data.image}`,
-        };
+        const aiMsg: Message = { id: uid(), role: "assistant", time: now(), type: "image", content: `data:${data.mimeType};base64,${data.image}` };
         setChats(p => p.map(c => c.id === cid ? { ...c, messages: [...c.messages, aiMsg] } : c));
       } else {
         setError(data.error ?? "Image generation failed");
@@ -243,16 +243,11 @@ export default function Page() {
     }
   };
 
-  // ── Send message ──────────────────────────────────────────────────
   const send = async (text: string) => {
     if (!text.trim() || loading) return;
 
-    // Auto-detect image requests
     const imageKeywords = ["generate image", "draw", "create image", "make image", "show me a picture", "generate a photo", "create a photo", "generate a picture", "paint a", "illustrate"];
-    if (imageKeywords.some(kw => text.toLowerCase().includes(kw))) {
-      await generateImage(text);
-      return;
-    }
+    if (imageKeywords.some(kw => text.toLowerCase().includes(kw))) { await generateImage(text); return; }
 
     let cid = activeId;
     if (!cid) {
@@ -267,53 +262,37 @@ export default function Page() {
       ? { ...c, messages: [...c.messages, userMsg], title: c.messages.length === 0 ? text.slice(0, 34) : c.title }
       : c
     ));
-    setDraft("");
-    setLoading(true);
-    setLoadingStep("Thinking...");
-    setError(null);
+    setDraft(""); setLoading(true); setLoadingStep("Thinking..."); setError(null);
 
     try {
-      const history = chats.find(c => c.id === cid)?.messages ?? [];
+      const history  = chats.find(c => c.id === cid)?.messages ?? [];
       const messages = [
         ...history.filter(m => m.type !== "image").map(m => ({ role: m.role, content: m.content })),
         { role: "user", content: text.trim() },
       ];
 
-      // Use agent endpoint or direct chat
       const endpoint = agentMode ? "/api/agent" : "/api/chat";
       const provider = currentModel?.provider ?? "groq";
 
-      const res = await fetch(endpoint, {
+      const res  = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages, model, provider }),
       });
-
       const data = await res.json() as {
-        success: boolean;
-        message: string;
-        model?: string;
-        provider?: string;
-        toolCalls?: ToolCall[];
-        image?: { data: string; mimeType: string } | null;
-        agentsUsed?: string[];
-        error?: string;
+        success: boolean; message: string; model?: string; provider?: string;
+        toolCalls?: ToolCall[]; image?: { data: string; mimeType: string } | null;
+        agentsUsed?: string[]; error?: string;
       };
 
       if (!res.ok) throw new Error(data.error ?? "Request failed");
 
       const aiMsg: Message = {
-        id: uid(),
-        role: "assistant",
-        content: data.message,
-        model: data.model,
-        provider: data.provider,
-        time: now(),
+        id: uid(), role: "assistant", content: data.message,
+        model: data.model, provider: data.provider, time: now(),
         type: data.image ? "image" : "text",
-        toolCalls: data.toolCalls,
-        image: data.image,
+        toolCalls: data.toolCalls, image: data.image,
       };
-
       setChats(p => p.map(c => c.id === cid ? { ...c, messages: [...c.messages, aiMsg] } : c));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -346,7 +325,7 @@ export default function Page() {
             <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 17, boxShadow: "0 0 20px rgba(99,102,241,.3)", flexShrink: 0 }}>M</div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#f9fafb" }}>MinaAI</div>
-              <div style={{ fontSize: 10, color: "#4b5563" }}>Powered by Groq · Free</div>
+              <div style={{ fontSize: 10, color: "#4b5563" }}>Groq · DeepSeek · Gemini</div>
             </div>
           </div>
 
@@ -383,12 +362,17 @@ export default function Page() {
               borderRadius: 8, color: "#d1d5db", fontSize: 12, padding: "8px 10px",
               cursor: "pointer", outline: "none", fontFamily: "inherit",
             }}>
-              <optgroup label="Groq (Free)">
+              <optgroup label="⚡ Groq (Free)">
                 {MODELS.filter(m => m.provider === "groq").map(m => (
                   <option key={m.id} value={m.id}>{m.label} — {m.desc}</option>
                 ))}
               </optgroup>
-              <optgroup label="Google (Free tier)">
+              <optgroup label="🔥 DeepSeek (Super Smart)">
+                {MODELS.filter(m => m.provider === "deepseek").map(m => (
+                  <option key={m.id} value={m.id}>{m.label} — {m.desc}</option>
+                ))}
+              </optgroup>
+              <optgroup label="✨ Google (Free tier)">
                 {MODELS.filter(m => m.provider === "gemini").map(m => (
                   <option key={m.id} value={m.id}>{m.label} — {m.desc}</option>
                 ))}
@@ -397,10 +381,12 @@ export default function Page() {
           </div>
 
           {/* Current model info */}
-          <div style={{ padding: "8px 12px", background: "rgba(99,102,241,.08)", border: "1px solid rgba(99,102,241,.15)", borderRadius: 8 }}>
+          <div style={{ padding: "8px 12px", background: `${providerColor}15`, border: `1px solid ${providerColor}30`, borderRadius: 8 }}>
             <div style={{ fontSize: 10, color: "#4b5563", marginBottom: 3 }}>ACTIVE MODEL</div>
-            <div style={{ fontSize: 12, color: "#a5b4fc", fontWeight: 600 }}>{currentModel?.label}</div>
-            <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>{currentModel?.desc} · {currentModel?.provider === "groq" ? "Free via Groq" : "Free via Google"}</div>
+            <div style={{ fontSize: 12, color: providerColor, fontWeight: 600 }}>{currentModel?.label}</div>
+            <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>
+              {currentModel?.desc} · {PROVIDER_LABELS[currentModel?.provider ?? "groq"]}
+            </div>
           </div>
 
           {/* Chat list */}
@@ -440,12 +426,12 @@ export default function Page() {
           <button onClick={() => setSidebar(o => !o)} style={{ background: "none", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 18, padding: 4 }}>☰</button>
           <div style={{ width: 26, height: 26, borderRadius: 7, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 13 }}>M</div>
           <span style={{ fontSize: 15, fontWeight: 700, color: "#f9fafb" }}>MinaAI</span>
-          <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: 10, fontWeight: 600, background: "rgba(99,102,241,.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,.3)" }}>
-            {agentMode ? "🤖 Multi-Agent · " : ""}{currentModel?.label}
+          <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: 10, fontWeight: 600, background: `${providerColor}20`, color: providerColor, border: `1px solid ${providerColor}40` }}>
+            {agentMode ? "🤖 " : ""}{currentModel?.label}
           </span>
           {loading && (
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: "#818cf8" }}>
-              <div style={{ width: 12, height: 12, border: "2px solid #2a2a3a", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin .7s linear infinite" }} />
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: providerColor }}>
+              <div style={{ width: 12, height: 12, border: "2px solid #2a2a3a", borderTopColor: providerColor, borderRadius: "50%", animation: "spin .7s linear infinite" }} />
               {loadingStep}
             </div>
           )}
@@ -459,7 +445,7 @@ export default function Page() {
               <div style={{ textAlign: "center" }}>
                 <h1 style={{ fontSize: 26, fontWeight: 700, color: "#f9fafb", marginBottom: 8 }}>MinaAI — Multi-Agent System</h1>
                 <p style={{ fontSize: 13, color: "#6b7280" }}>🔍 Search · 💻 Code · 🐛 Debug · 📋 Plan · 📝 Review · 🖼️ Images</p>
-                <p style={{ fontSize: 11, color: "#374151", marginTop: 4 }}>Powered by Groq (free) · No API cost</p>
+                <p style={{ fontSize: 11, color: "#374151", marginTop: 4 }}>Groq · DeepSeek · Gemini</p>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 580, width: "100%" }}>
                 {CHIPS.map(s => (
@@ -468,7 +454,7 @@ export default function Page() {
                     borderRadius: 10, color: "#9ca3af", fontSize: 12, cursor: "pointer",
                     textAlign: "left", lineHeight: 1.5, fontFamily: "inherit", transition: "all .15s",
                   }}
-                    onMouseOver={e => { e.currentTarget.style.borderColor = "#6366f1"; e.currentTarget.style.color = "#f9fafb"; e.currentTarget.style.background = "#13131e"; }}
+                    onMouseOver={e => { e.currentTarget.style.borderColor = providerColor; e.currentTarget.style.color = "#f9fafb"; e.currentTarget.style.background = "#13131e"; }}
                     onMouseOut={e => { e.currentTarget.style.borderColor = "#1e1e2e"; e.currentTarget.style.color = "#9ca3af"; e.currentTarget.style.background = "#101014"; }}
                   >{s}</button>
                 ))}
@@ -478,8 +464,6 @@ export default function Page() {
             <div style={{ maxWidth: 780, margin: "0 auto", padding: "24px 20px", display: "flex", flexDirection: "column", gap: 4 }}>
               {active.messages.map(msg => (
                 <div key={msg.id} style={{ display: "flex", flexDirection: "column", alignItems: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 22 }}>
-
-                  {/* Name row */}
                   <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
                     {msg.role === "assistant" && (
                       <div style={{ width: 22, height: 22, borderRadius: 6, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 11, flexShrink: 0 }}>M</div>
@@ -488,28 +472,26 @@ export default function Page() {
                       {msg.role === "user" ? "You" : `MinaAI${msg.model ? ` · ${msg.model}` : ""}`}
                     </span>
                     <span style={{ fontSize: 10, color: "#2d2d3a" }}>{msg.time}</span>
+                    {msg.provider && (
+                      <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 10, background: `${PROVIDER_COLORS[msg.provider] ?? "#6366f1"}20`, color: PROVIDER_COLORS[msg.provider] ?? "#818cf8", border: `1px solid ${PROVIDER_COLORS[msg.provider] ?? "#6366f1"}30` }}>
+                        {msg.provider}
+                      </span>
+                    )}
                   </div>
 
-                  {/* User bubble */}
                   {msg.role === "user" ? (
                     <div style={{ background: "linear-gradient(135deg,#6366f1,#7c3aed)", color: "#fff", padding: "11px 16px", borderRadius: "14px 14px 3px 14px", maxWidth: "75%", fontSize: 14, lineHeight: 1.65 }}>
                       {msg.content}
                     </div>
-
                   ) : (
                     <div style={{ width: "100%" }}>
-                      {/* Tool badges */}
                       {msg.toolCalls && <ToolBadges toolCalls={msg.toolCalls} />}
-
-                      {/* Image output */}
                       {msg.image && (
                         <div style={{ background: "#101014", border: "1px solid #1e1e2e", borderRadius: "3px 14px 14px 14px", padding: "14px 18px", marginBottom: 8 }}>
                           <img src={`data:${msg.image.mimeType};base64,${msg.image.data}`} alt="Generated" style={{ maxWidth: "100%", width: 500, borderRadius: 10, display: "block" }} />
                           <div style={{ marginTop: 8, fontSize: 11, color: "#4b5563" }}>🎨 Generated by Image Agent</div>
                         </div>
                       )}
-
-                      {/* Text output */}
                       {msg.type === "image" && !msg.image ? (
                         <div style={{ background: "#101014", border: "1px solid #1e1e2e", borderRadius: "3px 14px 14px 14px", padding: "14px 18px" }}>
                           <img src={msg.content} alt="Generated" style={{ maxWidth: "100%", width: 500, borderRadius: 10 }} />
@@ -520,7 +502,6 @@ export default function Page() {
                           <MsgText text={msg.content} />
                         </div>
                       ) : null}
-
                       {msg.content && msg.type !== "image" && (
                         <div style={{ marginTop: 5 }}><CopyBtn text={msg.content} /></div>
                       )}
@@ -528,7 +509,6 @@ export default function Page() {
                   )}
                 </div>
               ))}
-
               {loading && (
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                   <div style={{ width: 22, height: 22, borderRadius: 6, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 11, marginTop: 8, flexShrink: 0 }}>M</div>
@@ -540,7 +520,6 @@ export default function Page() {
           )}
         </div>
 
-        {/* Error */}
         {error && (
           <div style={{ margin: "0 20px 10px", padding: "10px 14px", background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 8, color: "#f87171", fontSize: 13, display: "flex", justifyContent: "space-between" }}>
             <span>⚠️ {error}</span>
@@ -564,16 +543,16 @@ export default function Page() {
               />
               <button onClick={() => send(draft)} disabled={!draft.trim() || loading} style={{
                 width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                background: draft.trim() && !loading ? "linear-gradient(135deg,#6366f1,#7c3aed)" : "#1a1a28",
+                background: draft.trim() && !loading ? `linear-gradient(135deg,${providerColor},#7c3aed)` : "#1a1a28",
                 border: "none", color: "#fff",
                 cursor: draft.trim() && !loading ? "pointer" : "not-allowed",
                 fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: draft.trim() && !loading ? "0 0 16px rgba(99,102,241,.4)" : "none",
+                boxShadow: draft.trim() && !loading ? `0 0 16px ${providerColor}60` : "none",
                 transition: "all .2s",
               }}>▲</button>
             </div>
             <div style={{ textAlign: "center", fontSize: 11, color: "#2d2d3a", marginTop: 7 }}>
-              {agentMode ? "🤖 Multi-Agent Mode · Groq powered · Free" : `Direct chat · ${currentModel?.label}`}
+              {currentModel?.label} · {PROVIDER_LABELS[currentModel?.provider ?? "groq"]}
             </div>
           </div>
         </div>
