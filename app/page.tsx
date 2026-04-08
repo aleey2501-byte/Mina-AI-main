@@ -1,5 +1,6 @@
 "use client";
 
+import FuturisticBackground from "@/components/FuturisticBackground";
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 
 interface ToolCall {
