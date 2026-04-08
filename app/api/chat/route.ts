@@ -5,7 +5,8 @@ const GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions";
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 const GROQ_MODEL   = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
-// ── GROQ ──────────────────────────────────────────────────────────────
+// ── Providers ──────────────────────────────────────────────────────────
+
 async function handleGroq(
   messages: Array<{ role: string; content: string }>,
   model: string
@@ -31,7 +32,6 @@ async function handleGroq(
   };
 }
 
-// ── DEEPSEEK ──────────────────────────────────────────────────────────
 async function handleDeepSeek(
   messages: Array<{ role: string; content: string }>
 ) {
@@ -61,7 +61,6 @@ async function handleDeepSeek(
   };
 }
 
-// ── GEMINI ────────────────────────────────────────────────────────────
 async function handleGemini(
   messages: Array<{ role: string; content: string }>
 ) {
@@ -80,7 +79,8 @@ async function handleGemini(
   };
 }
 
-// ── MAIN ROUTE ────────────────────────────────────────────────────────
+// ── Main Route ─────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   try {
     const { messages, model = GROQ_MODEL, provider } = await req.json() as {
@@ -93,15 +93,14 @@ export async function POST(req: NextRequest) {
     const hasDeepSeek = !!process.env.DEEPSEEK_API_KEY;
     const hasGemini   = !!process.env.GEMINI_API_KEY;
 
-    // Determine provider
     const useProvider =
-      provider === "deepseek" ? "deepseek"
-      : provider === "gemini"   ? "gemini"
-      : provider === "groq"     ? "groq"
-      : model === "deepseek-chat" ? "deepseek"
-      : hasGroq     ? "groq"
-      : hasDeepSeek ? "deepseek"
-      : hasGemini   ? "gemini"
+      provider === "deepseek"      ? "deepseek"
+      : provider === "gemini"      ? "gemini"
+      : provider === "groq"        ? "groq"
+      : model === "deepseek-chat"  ? "deepseek"
+      : hasGroq                    ? "groq"
+      : hasDeepSeek                ? "deepseek"
+      : hasGemini                  ? "gemini"
       : null;
 
     if (!useProvider) {
